@@ -18,7 +18,7 @@ GROUP_CHAT_ID = -1002194672193  # Change this to the actual group chat ID
 TOPIC_ID = 16  # Initialize with None, you will set this after retrieving the ID
 
 # Define states
-STATE_QUERY, STATE_NAME, STATE_LOCATION, STATE_DATE, STATE_PHOTO = range(5)
+STATE_QUERY, STATE_NAME, STATE_BATCH, STATE_LOCATION, STATE_DATE, STATE_PHOTO = range(6)
 user_states = {}
 
 def set_user_state(user_id, state):
@@ -54,6 +54,10 @@ def start(message):
                          f"/coordinator : Coordinator support."
                          )
 
+        @bot.message_handler(commands=['coordinator'])
+        def coordinator(message):
+            bot.reply_to(message, 'Contact the coordinator at @itz_pr_14.')
+
         @bot.message_handler(commands=['photography'])
         def handle_photoAndQuery(message):
             bot.reply_to(message, 'Please enter your name:')
@@ -64,6 +68,14 @@ def start(message):
             user_id = message.chat.id
             initialize_user_data(user_id)
             user_data[user_id]['name'] = message.text
+            bot.reply_to(message, 'Please enter your batch (ex-1,2,..):')
+            set_user_state(user_id, STATE_BATCH)
+
+        @bot.message_handler(func=lambda message: get_user_state(message.chat.id) == STATE_BATCH)
+        def handle_name(message):
+            user_id = message.chat.id
+            initialize_user_data(user_id)
+            user_data[user_id]['batch'] = message.text
             bot.reply_to(message, 'Please enter the location where the photo was taken:')
             set_user_state(user_id, STATE_LOCATION)
 
@@ -93,7 +105,7 @@ def start(message):
 
             # Notify admin
             user_info = user_data[user_id]
-            approval_text = (f"New photo submission:\nName: {user_info['name']}\n"
+            approval_text = (f"New photo submission:\nName: {user_info['name']}\nBatch:{user_info['batch']}\n"
                              f"Location: {user_info['location']}\nDate: {user_info['date']}\n")
 
             approval_markup = types.InlineKeyboardMarkup()
@@ -117,7 +129,7 @@ def start(message):
                 # Send photo to the specific topic in the group chat
                 if user_id in pending_approvals and TOPIC_ID is not None:
                     user_info = pending_approvals[user_id]
-                    approval_text = (f"Approved photo submission:\nName: {user_info['name']}\n"
+                    approval_text = (f"Name: {user_info['name']}\nBatch: {user_info['batch']}\n"
                                      f"Location: {user_info['location']}\nDate: {user_info['date']}\n")
                     bot.send_photo(GROUP_CHAT_ID, user_info['photo'], caption=approval_text, message_thread_id=TOPIC_ID)
 
@@ -144,9 +156,6 @@ def start(message):
             # Notify the admin of the action
             bot.answer_callback_query(call.id, f"Submission {'approved' if action == 'approve' else 'rejected'}.")
 
-        @bot.message_handler(commands=['coordinator'])
-        def coordinator(message):
-            bot.reply_to(message, 'Contact the coordinator at coordinator@example.com.')
     else:
         bot.reply_to(message,
                      f"This command cannot be used in groups. Please start a private chat with the bot.\n"
